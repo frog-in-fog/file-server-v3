@@ -1,6 +1,7 @@
 package mars
 
 import (
+	"bytes"
 	c_rand "crypto/rand"
 	"encoding/binary"
 	"fyne.io/fyne/v2/widget"
@@ -353,8 +354,8 @@ func rotateRight(arr [4]uint32) [4]uint32 {
 }
 
 func Encrypt(in, arr_key []byte, progressBar *widget.ProgressBar) []byte {
-	arr := convertByteToUint32(in)
-	key := convertByteToUint32(arr_key)
+	arr := convertByteToUint32(in, false)
+	key := convertByteToUint32(arr_key, true)
 	// Создаем срез для хранения зашифрованных данных
 	encrypt := make([]uint32, 0)
 	// Проходим по срезу arr с шагом 4
@@ -367,38 +368,44 @@ func Encrypt(in, arr_key []byte, progressBar *widget.ProgressBar) []byte {
 
 		progressBar.SetValue(float64(i+1) / (float64(len(arr)) + float64(2)))
 	}
-	encrypted := convertUint32ToByte(encrypt)
+	encrypted := convertUint32ToByte(encrypt, true)
 
 	progressBar.SetValue(1)
 	return encrypted
 }
 
-func convertByteToUint32(arr []byte) []uint32 {
+func padding(b []byte, blockSize int) []byte {
+	padding := blockSize - len(b)%blockSize
+	return append(b, bytes.Repeat([]byte{byte(padding)}, padding)...)
+}
+
+func unpadding(b []byte) []byte {
+	return b[:len(b)-int(b[len(b)-1])]
+}
+
+func convertByteToUint32(arr []byte, isKey bool) []uint32 {
 	// Создаем срез для хранения uint32 значений
 	res := make([]uint32, 0)
+	if !isKey {
+		arr = padding(arr, 16)
+	}
 	// Читаем байты в uint32 с помощью пакета encoding/binary
 	for i := 0; i < len(arr); i += 4 {
-		// Проверяем, достаточно ли байтов для чтения uint32
-		if i+4 >= len(arr) {
-			// Дополняем байтовый срез нулями, чтобы получить 4 байта
-			arr = append(arr, make([]byte, 4-(len(arr)-i))...)
-		}
 		// Читаем 4 байта в uint32
 		res = append(res, binary.LittleEndian.Uint32(arr[i:i+4]))
-	}
-	if len(res)%4 != 0 {
-		res = append(res, make([]uint32, 4-len(res)%4)...)
 	}
 	return res
 }
 
-func convertUint32ToByte(arr []uint32) []byte {
+func convertUint32ToByte(arr []uint32, isEncrypted bool) []byte {
 	// Преобразование среза uint32 в срез байтов
 	dest := make([]byte, 4*len(arr)) // создаем срез байтов нужной длины
 	for i, v := range arr {          // перебираем элементы среза source
 		binary.LittleEndian.PutUint32(dest[i*4:(i+1)*4], v) // записываем каждый элемент в срез dest
 	}
-
+	if !isEncrypted {
+		dest = unpadding(dest)
+	}
 	return dest
 }
 
@@ -464,8 +471,8 @@ func reverse(a [4]uint32) [4]uint32 {
 }
 
 func Decrypt(encrypted, arr_key []byte, progressBar *widget.ProgressBar) []byte {
-	encrypt := convertByteToUint32(encrypted)
-	key := convertByteToUint32(arr_key)
+	encrypt := convertByteToUint32(encrypted, true)
+	key := convertByteToUint32(arr_key, true)
 	// Создаем срез для хранения зашифрованных данных
 	decrypt := make([]uint32, 0)
 	for i := 0; i < len(encrypt); i += 4 {
@@ -474,7 +481,7 @@ func Decrypt(encrypted, arr_key []byte, progressBar *widget.ProgressBar) []byte 
 
 		progressBar.SetValue(float64(i+1) / (float64(len(encrypt)) + float64(2)))
 	}
-	decrypted := convertUint32ToByte(decrypt)
+	decrypted := convertUint32ToByte(decrypt, false)
 
 	progressBar.SetValue(1)
 	return decrypted

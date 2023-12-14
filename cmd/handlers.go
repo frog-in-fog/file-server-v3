@@ -158,11 +158,15 @@ func DownloadFileMars(win fyne.Window, name string, progressBar *widget.Progress
 		log.Print(err)
 		return
 	}
-	dialog.ShowInformation("Успех", fmt.Sprintf("Файл %s был успешно зашифрован и отправлен на сервер", name), win)
+	dialog.ShowInformation("Успех", fmt.Sprintf("Файл %s был успешно расшифрован и сохранен на устройстве", name), win)
 }
 
-func UploadFileNtrue(win fyne.Window, name string, progressBar *widget.ProgressBar) {
+func UploadFileNtrue(win fyne.Window, name string, progressBar *widget.ProgressBar, selectSender, selectReceiver, selectFile *widget.Select, refreshBtn *widget.Button) {
 	dialog.ShowFileOpen(func(read fyne.URIReadCloser, err error) {
+		selectSender.Disable()
+		selectReceiver.Disable()
+		selectFile.Disable()
+		refreshBtn.Disable()
 
 		var partSize int64
 		partSize = 247
@@ -192,6 +196,10 @@ func UploadFileNtrue(win fyne.Window, name string, progressBar *widget.ProgressB
 		}
 		dialog.ShowInformation("Успех", fmt.Sprintf("Файл %s был успешно зашифрован и отправлен на сервер", read.URI().Name()), win)
 
+		selectSender.Enable()
+		selectReceiver.Enable()
+		selectFile.Enable()
+		refreshBtn.Enable()
 	}, win)
 }
 

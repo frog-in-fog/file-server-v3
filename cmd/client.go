@@ -28,6 +28,7 @@ const (
 
 type ClientNtrue struct {
 	Name         string
+	Online       bool
 	ReceiverName string
 	PrivateKey   *ntru.PrivateKey
 	PublicKey    *ntru.PublicKey
@@ -35,6 +36,7 @@ type ClientNtrue struct {
 
 type ClientMars struct {
 	Name         string
+	Online       bool
 	ReceiverName string
 	PublicKey    []byte
 	PrivateKey   []byte
@@ -160,12 +162,13 @@ func MakeUI(win fyne.Window, algo *string) *UI {
 	progressBar.Move(fyne.NewPos(30, 240))
 
 	uploadBtn := widget.NewButton("Загрузить файл", func() {
+
 		if len(nameEntry.Text) != 0 {
 			submitBtn.Disable()
 		}
 		switch *algo {
 		case "NTRUEncrypt":
-			UploadFileNtrue(win, clientNtrue.ReceiverName, progressBar)
+			UploadFileNtrue(win, clientNtrue.ReceiverName, progressBar, selectSender, selectReceiver, selectFile, refreshBtn)
 		case "MARS":
 			UploadFileMars(win, clientMars.ReceiverName, progressBar)
 		}
@@ -175,6 +178,12 @@ func MakeUI(win fyne.Window, algo *string) *UI {
 	uploadBtn.Move(fyne.NewPos(30, 170))
 
 	downloadBtn := widget.NewButton("Скачать файл", func() {
+		selectSender.Disable()
+		selectReceiver.Disable()
+		selectFile.Disable()
+		refreshBtn.Disable()
+		uploadBtn.Disable()
+
 		if len(nameEntry.Text) != 0 {
 			submitBtn.Disable()
 		}
@@ -184,6 +193,12 @@ func MakeUI(win fyne.Window, algo *string) *UI {
 		case "MARS":
 			DownloadFileMars(win, file.Name, progressBar)
 		}
+
+		selectSender.Enable()
+		selectReceiver.Enable()
+		selectFile.Enable()
+		refreshBtn.Enable()
+		uploadBtn.Enable()
 
 	})
 	downloadBtn.Resize(fyne.NewSize(200, 40))
@@ -218,6 +233,8 @@ func createNewNtrueClient(name string) {
 	clientNtrue.PublicKey = &keypair.PublicKey
 	clientNtrue.PrivateKey = keypair
 	clientNtrue.Name = name
+	clientNtrue.Online = true
+
 	fmt.Println("client_name: ", name)
 
 	_, err = file.Write(publicKey)
@@ -271,8 +288,7 @@ func createNewMarsClient(name string) {
 	clientMars.PublicKey = publicKey
 	clientMars.PrivateKey = privateKey
 	clientMars.Name = nameOfClient
-
-	fmt.Println(fmt.Sprintf("clientMars.Name: %s", clientMars.Name))
+	clientMars.Online = true
 
 	client, err := os.OpenFile(filepath.Join(ClientsPath, clientMars.Name), os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
@@ -336,26 +352,26 @@ func runUI(algo *string) error {
 	return nil
 }
 
+func riskyOperation() {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("Recovered: ", r)
+		}
+	}()
+	panic("ok")
+}
+
 func main() {
-	algo := flag.String("Algorithm", "NTRUEncrypt", "Chosen algorithm for encryption")
+	defer riskyOperation()
+	algo := flag.String("Algorithm", "MARS", "Chosen algorithm for encryption")
 	flag.Parse()
+
+	_ = remove(ClientsPath)
+	_ = remove(EncFilesPath)
+	_ = remove(ConstantsPath)
+
 	if err := runUI(algo); err != nil {
 		panic(err)
-	}
-
-	err := remove(ClientsPath)
-	if err != nil {
-		log.Println(err)
-	}
-
-	err = remove(EncFilesPath)
-	if err != nil {
-		log.Println(err)
-	}
-
-	err = remove(ConstantsPath)
-	if err != nil {
-		log.Println(err)
 	}
 }
 
